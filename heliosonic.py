@@ -1,21 +1,21 @@
 """
 heliosonic.py
-Tools for the sonficiation of helioseismic data.
+Tools for the sonification of helioseismic data.
 Chris Chronopoulos, 01-22-2013
 chronopoulos.chris@gmail.com
 """
 
 import os, pylab, pyfits
 import numpy as np
-import scikits.audiolab as audiolab
+import scikits.audiolab as audio
 
 def meshGrid(x,y):
    xx = np.outer(x,np.ones(len(y)))
    yy = np.outer(np.ones(len(x)),y)
    return xx,yy
 
-def apodMask(nx,ny):
-   mask = np.zeros((nx,ny),dtype='float32')
+def spatialApod(ny,nx):
+   mask = np.zeros((ny,nx),dtype='float32')
    if nx <= 16:
       rInner = 0.8750
    else:
@@ -32,11 +32,36 @@ def apodMask(nx,ny):
    mask[indOuter] = 0.
    return mask
 
+def spaceTimeApod(nt,ny,nx):
+
+   t = np.linspace(-1.,1.,num=nt) # TODO: typecast?
+   #t = t.view('float32')
+
+   tOuter = 1.
+   tInner = 0.96875
+   indInner = np.where( abs(t) <= tInner )
+   indBetween = np.where( (abs(t) > tInner) * (abs(t)<tOuter) )
+   indOuter = np.where( abs(t) >= tOuter )
+
+   tMask = np.zeros(nt, dtype='float32')
+   tMask[indInner] = 1.0
+   rs = (abs(t[indBetween])-tInner)/(tOuter-tInner)
+   print type(rs)
+   print np.shape(rs)
+   print rs.dtype
+   tMask[indBetween] = (1.0 - rs**2)**2
+   tMask[indOuter] = 0.
+
+   rMask=spatialApod(ny,nx)
+   mask=np.zeros((nt,ny,nx),dtype='float32')
+   for i in range(nt):
+      mask[i,:,:] = tMask[i]*rmask
+
 ###
 
 class imgObject():
    """
-   Encapsulates the raw data (image, as opposed to its transform) and its manipulations.
+   Encapsulates the raw data (the image, as opposed to its transform) and its manipulations.
    Takes an SDO/HMI FITS file as an argument.
    """
 
@@ -46,7 +71,7 @@ class imgObject():
       self.data = fitsFile[0].data
       self.nt, self.ny, self.nx = pylab.shape(self.data)
 
-   def computeFFT(self,*arg):
+   def spatialFFT(self,*arg):
       """
       Compute the spatial FFT of each timestep of the data set.
       Uses a tapered-tophat 2D apodization mask.
@@ -77,7 +102,8 @@ class imgObject():
          imgfilename = imgDir + numstr.zfill( int( np.log10(self.nt) ) ) + '.png'
          print 'Saving ' + imgfilename
          pylab.savefig(imgfilename)
-      
+
+
 
 class fftObject():
    """
@@ -127,5 +153,20 @@ class fftObject():
       for i in range(np.shape(indRing)[1]):
          signal += self.data[ :, indRing[1][i], indRing[0][i] ]
       self.plotSignalSpectrum(signal)
+
+   def cutKy(self, iky):
+         imgPlot = pylab.imshow(self.data[:,iky,:])
+         imgPlot.set_cmap('hot')
+
+   def makeWAV(self,ikx,iky,filename):
+      signal = np.real(self.data[:,iky,ikx])
+      signal = signal - np.mean(signal)
+      signal = signal / max(abs(signal))
+      self.plotSignalSpectrum(signal)
+      print type(signal)
+      print np.shape(signal)
+      print signal.dtype
+      outputfile = audio.Sndfile(filename, 'w', audio.Format('wav'), 1, 44100)
+      outputfile.write_frames(signal)
 
 
