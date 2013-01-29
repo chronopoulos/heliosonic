@@ -7,7 +7,7 @@ chronopoulos.chris@gmail.com
 
 import os, pylab, pyfits
 import numpy as np
-import scikits.audiolab as audio
+import scipy.io.wavfile as wav
 
 def MeshGrid(x,y):
    xx = np.outer(x,np.ones(len(y)))
@@ -73,6 +73,9 @@ class DataCube():
       fitsFile = pyfits.open(filename)
       self.data = fitsFile[0].data
       self.nt, self.ny, self.nx = pylab.shape(self.data)
+      # Remove the DC offset due to the spacecraft's motion
+      for i in range(self.nt):
+         self.data[i,:,:] -= np.mean(self.data[i,:,:])
 
    def SpatialFFT(self,*arg):
       """
@@ -208,10 +211,6 @@ class SpatialFFT():
       signal = signal - np.mean(signal)
       signal = signal / max(abs(signal))
       self.plotSignalSpectrum(signal)
-      print type(signal)
-      print np.shape(signal)
-      print signal.dtype
-      outputfile = audio.Sndfile(filename, 'w', audio.Format('wav'), 1, 44100)
-      outputfile.write_frames(signal)
+      wav.write(filename,44100,signal)
 
 
