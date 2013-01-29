@@ -167,7 +167,7 @@ class SpatialFFT():
       print 'Reading in file '+filename
       self.data = np.load(filename)
       self.nt, self.nky, self.nkx = np.shape(self.data)
-      self.kx, self.ky = meshGrid(np.arange(self.nkx),np.arange(self.nky))
+      self.kx, self.ky = MeshGrid(np.arange(self.nkx),np.arange(self.nky))
       self.kr = np.sqrt(self.kx**2 + self.ky**2)
       self.ktheta = np.arctan(self.ky/self.kx)
 
@@ -193,7 +193,7 @@ class SpatialFFT():
       Arguments: indeces ikx, iky
       """
       signal=self.data[:,iky,ikx]
-      self.plotSignalSpectrum(signal)
+      self.PlotSignalSpectrum(signal)
 
    def DisplayRing(self,ikr,dikr=2):
       """
@@ -204,13 +204,14 @@ class SpatialFFT():
       signal=np.zeros(self.nt)
       for i in range(np.shape(indRing)[1]):
          signal += self.data[ :, indRing[1][i], indRing[0][i] ]
-      self.plotSignalSpectrum(signal)
+      self.PlotSignalSpectrum(signal)
 
    def MakeWAV(self,ikx,iky,filename):
       signal = np.real(self.data[:,iky,ikx])
       signal = signal - np.mean(signal)
       signal = signal / max(abs(signal))
-      self.plotSignalSpectrum(signal)
-      wav.write(filename,44100,signal)
+      self.PlotSignalSpectrum(signal)
+      signal_int16 = np.int16(signal*2**15)
+      wav.write(filename,44100,signal_int16)
 
 
