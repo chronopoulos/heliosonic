@@ -55,7 +55,6 @@ def FullApod(nt,ny,nx):
    mask=np.zeros((nt,ny,nx),dtype='float32')
    for i in range(nt):
       mask[i,:,:] = tMask[i]*rMask
-
    return mask
 
 ###
@@ -169,7 +168,32 @@ class SpatialFFT():
       self.nt, self.nky, self.nkx = np.shape(self.data)
       self.kx, self.ky = MeshGrid(np.arange(self.nkx),np.arange(self.nky))
       self.kr = np.sqrt(self.kx**2 + self.ky**2)
-      self.ktheta = np.arctan(self.ky/self.kx)
+      self.ktheta = np.arctan2(self.ky,self.kx)
+
+   def GetPointSignal(self,ikx,iky):
+      signal = self.data[:,iky,ikx]
+      return signal
+
+   def GetRingSignal(self,ikr,dikr=2):
+      """
+      Display the signal and spectrum of all modes in a ring of radius kr.
+      Arguments: index ikr, ring width dikr (optional)
+      """
+      indRing = np.where( (self.kr >= ikr-dikr)*(self.kr <= ikr+dikr) )
+      signal=np.zeros(self.nt)
+      for i in range(np.shape(indRing)[1]):
+         signal += self.GetPointSignal(indRing[0][i], indRing[1][i])
+      return signal
+
+   def GetNormalizedSignal(self,signal):
+      """
+      Given a signal, remove its DC offset,
+      and normalize to a peak value of 1.
+      """
+      signal = np.real(signal)
+      signal = signal - np.mean(signal)
+      signal = signal / max(abs(signal))
+      return signal
 
    def PlotSignalSpectrum(self,signal):
       """
@@ -181,37 +205,37 @@ class SpatialFFT():
       pylab.figure(figsize=(14,6))
       pylab.subplot(121, axisbg='k')
       pylab.plot(signal,'y-')
+      pylab.xlim([0,2047])
       pylab.title('Signal')
       pylab.subplot(122, axisbg='k')
-      pylab.semilogy(spectrum,'g-')
+      pylab.plot(spectrum,'g-')
+      pylab.xlim([100,500])
       pylab.title('Spectrum')
       pylab.show()
 
-   def DisplayMode(self,ikx,iky):
+   def DisplayPoint(self,ikx,iky):
       """
       Display the signal and spectrum of a single mode (kx,ky).
       Arguments: indeces ikx, iky
       """
-      signal=self.data[:,iky,ikx]
+      signal=self.GetPointSignal(ikx,iky)
       self.PlotSignalSpectrum(signal)
 
-   def DisplayRing(self,ikr,dikr=2):
-      """
-      Display the signal and spectrum of all modes in a ring of radius kr.
-      Arguments: index ikr, ring width dikr (optional)
-      """
-      indRing = np.where( (self.kr >= ikr-dikr)*(self.kr <= ikr+dikr) )
-      signal=np.zeros(self.nt)
-      for i in range(np.shape(indRing)[1]):
-         signal += self.data[ :, indRing[1][i], indRing[0][i] ]
+   def DisplayRing(self, ikr, dikr=2):
+      signal = self.GetNormalizedSignal( self.GetRingSignal(ikr,dikr) )
       self.PlotSignalSpectrum(signal)
 
-   def MakeWAV(self,ikx,iky,filename):
-      signal = np.real(self.data[:,iky,ikx])
-      signal = signal - np.mean(signal)
-      signal = signal / max(abs(signal))
-      self.PlotSignalSpectrum(signal)
-      signal_int16 = np.int16(signal*2**15)
-      wav.write(filename,44100,signal_int16)
-
+   def ExploreWAV(self):
+      satisfied=False
+      while not satisfied:
+         ikr = input('Enter ikr: ')
+         signal = self.GetNormalizedSignal(self.GetRingSignal(ikr))
+         self.PlotSignalSpectrum(signal)
+         response = raw_input('Satisfied? y/n: ')
+         satisfied = (response=='y')
+      filename = 'ringsample_'+str(ikr)+'.wav'
+      response = raw_input('Write to '+filename+'? y/n: ')
+      if response=='y':
+         signal_int16 = np.int16(signal*2**15*0.999)
+         wav.write(filename,44100,signal_int16)
 
