@@ -15,9 +15,6 @@ def MeshGrid(x,y):
    return xx,yy
 
 def SpatialApod(ny,nx):
-   """
-   Thanks to Ben Greer for this function.
-   """
    mask = np.zeros((ny,nx),dtype='float32')
    if nx <= 16:
       rInner = 0.8750
@@ -185,6 +182,17 @@ class SpatialFFT():
          signal += self.GetPointSignal(indRing[0][i], indRing[1][i])
       return signal
 
+   def GetRingAmpSignal(self,ikr,dikr=2):
+      """
+      Display the signal and spectrum of all modes in a ring of radius kr.
+      Arguments: index ikr, ring width dikr (optional)
+      """
+      indRing = np.where( (self.kr >= ikr-dikr)*(self.kr <= ikr+dikr) )
+      signal=np.zeros(self.nt)
+      for i in range(np.shape(indRing)[1]):
+         signal += np.absolute( self.GetPointSignal(indRing[0][i], indRing[1][i]) )
+      return signal
+
    def GetNormalizedSignal(self,signal):
       """
       Given a signal, remove its DC offset,
@@ -208,6 +216,7 @@ class SpatialFFT():
       pylab.xlim([0,2047])
       pylab.title('Signal')
       pylab.subplot(122, axisbg='k')
+      #pylab.plot(spectrum,'g-')
       pylab.plot(spectrum,'g-')
       pylab.xlim([100,500])
       pylab.title('Spectrum')
@@ -236,6 +245,6 @@ class SpatialFFT():
       filename = 'ringsample_'+str(ikr)+'.wav'
       response = raw_input('Write to '+filename+'? y/n: ')
       if response=='y':
-         signal_int16 = np.int16(signal*2**15*0.999)
+         signal_int16 = np.int16(signal*2**15*0.99)
          wav.write(filename,44100,signal_int16)
 
